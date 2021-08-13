@@ -3,4 +3,4 @@
 #
 
 zephyr_library()
-zephyr_library_sources(shtc3.c)
+zephyr_library_sources(aqw.c)

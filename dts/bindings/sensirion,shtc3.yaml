@@ -1,0 +1,9 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+description: Sensirion SHTC3 Temp/Humidity Sensor
+
+compatible: "sensirion,shtc3"
+
+include: i2c-device.yaml
