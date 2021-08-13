@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+menuconfig SGP40
+	bool "SGP40 CO2/TVOC Sensor"
+	depends on I2C
+	help
+	  Enable driver for SGP40 CO2/TVOC sensors.
+
+if SGP40
+
+config SGP40_DRV_NAME
+	string "Sensirion SGP40 Driver's name"
+	default "SGP40"
+	help
+	  This option sets the driver name
+
+endif # SGP40

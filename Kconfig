@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+menu "Air Quality Wing"
+rsource "drivers/Kconfig"
+endmenu
+
+# Module logging
+module = AQW
+module-str = Air Quality Wing
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+

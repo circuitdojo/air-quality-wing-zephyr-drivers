@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+menuconfig SHTC3
+	bool "SHTC3 Temperature and Humidity Sensor"
+	depends on I2C
+	help
+	  Enable driver for SHTC3 temperature/humidity sensor.
+
+if SHTC3
+
+config SHTC3_DRV_NAME
+	string "Sensirion SHTC3 Driver's name"
+	default "SHTC3"
+	help
+	  This option sets the driver name
+
+endif # SHTC3
