@@ -5,6 +5,7 @@
 
 #define DT_DRV_COMPAT sensirion_shtc3
 
+#include <math.h>
 #include <device.h>
 #include <drivers/i2c.h>
 #include <drivers/sensor.h>
@@ -47,7 +48,7 @@ static int shtc3_sample_fetch(const struct device *dev,
 
         /* Calculate the temperature */
         uint16_t temperature = (rx_buf[0] << 8) + rx_buf[1];
-        double temperature_float = (temperature * 175 >> 16) - 45;
+        double temperature_float = (temperature * 175) / pow(2, 16) - 45;
 
         /* Convert! */
         sensor_value_from_double(&dat->temperature, temperature_float);
@@ -71,7 +72,7 @@ static int shtc3_sample_fetch(const struct device *dev,
 
         /* Calculate the humidity */
         uint16_t humidity = (rx_buf[0] << 8) + rx_buf[1];
-        double humidity_float = humidity * 100 >> 16;
+        double humidity_float = humidity * 100 / pow(2, 16);
 
         /* Convert! */
         sensor_value_from_double(&dat->humidity, humidity_float);
