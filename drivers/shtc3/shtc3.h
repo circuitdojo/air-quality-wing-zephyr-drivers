@@ -6,6 +6,9 @@
 #ifndef _SHTC3_H
 #define _SHTC3_H
 
+#include <zephyr.h>
+#include <drivers/sensor.h>
+
 #define SHTC3_TEMP_HOLD_CMD \
     {                       \
         0x7C, 0xA2          \
@@ -14,5 +17,21 @@
     {                           \
         0x5C, 0x24              \
     }
+
+#define SHTC3_SLEEP \
+    {               \
+        0xB0, 0x98  \
+    }
+
+#define SHTC3_WAKE \
+    {              \
+        0x35, 0x17 \
+    }
+
+/* Additional custom attributes */
+enum shtc3_attribute
+{
+    SHTC3_ATTR_USE_RAW = SENSOR_ATTR_PRIV_START,
+};
 
 #endif /*_SHTC3_H*/

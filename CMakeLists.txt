@@ -11,3 +11,4 @@ add_subdirectory_ifdef(CONFIG_AQW lib)
 
 # Include headers
 zephyr_include_directories(include)
+zephyr_include_directories(drivers)
