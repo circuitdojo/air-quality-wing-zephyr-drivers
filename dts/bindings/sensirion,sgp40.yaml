@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+
+description: Sensirion SGP40 TVOC Sensor
+
+compatible: "sensirion,sgp40"
+
+include: i2c-device.yaml
+
+properties:
+    enable-gpios:
+      type: phandle-array
+      required: false
+      description: |
+        (Optional) power enable for the SGP40.
+

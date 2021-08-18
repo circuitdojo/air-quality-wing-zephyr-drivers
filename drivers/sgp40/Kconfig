@@ -3,10 +3,10 @@
 #
 
 menuconfig SGP40
-	bool "SGP40 CO2/TVOC Sensor"
+	bool "SGP40 TVOC Sensor"
 	depends on I2C
 	help
-	  Enable driver for SGP40 CO2/TVOC sensors.
+	  Enable driver for SGP40 TVOC sensors.
 
 if SGP40
 

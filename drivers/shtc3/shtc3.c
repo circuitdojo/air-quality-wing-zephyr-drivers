@@ -116,7 +116,7 @@ static int shtc3_sample_fetch(const struct device *dev,
 
     /* Power up */
     shtc3_wake(dat->i2c_dev);
-    k_sleep(K_MSEC(1));
+    k_sleep(K_USEC(500));
 
     /* Get the data depending on which channel */
     switch (chan)

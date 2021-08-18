@@ -5,6 +5,8 @@
 
 #include <zephyr.h>
 
+#include <shtc3/shtc3.h>
+#include <sgp40/sgp40.h>
 #include <aqw.h>
 
 #include <logging/log.h>
@@ -14,6 +16,9 @@ static struct aqw_sensor **aqw_sensors;
 static size_t aqw_sensor_count = 0;
 static aqw_sensor_data_ready_t cb;
 static struct k_work_delayable aqw_sensor_work;
+
+static uint8_t raw_humidity_value[3];
+static uint8_t raw_temperature_value[3];
 
 static void aqw_sensor_work_fn(struct k_work *work)
 {
@@ -32,6 +37,22 @@ static void aqw_sensor_work_fn(struct k_work *work)
         if (aqw_sensors[i]->dev == NULL)
             continue;
 
+        /* Update calibration parameters if they're available for the SGP40 */
+        if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
+        {
+            struct sensor_value val;
+
+            /* Set the temp attr */
+            memcpy(&val.val1, raw_temperature_value, sizeof(raw_temperature_value));
+
+            /* Set the humidity attr */
+            memcpy(&val.val2, raw_humidity_value, sizeof(raw_humidity_value));
+
+            err = sensor_attr_set(aqw_sensors[i]->dev, aqw_sensors[i]->chan, SGP40_ATTR_RAW_HUM_TEMP, &val);
+            if (err)
+                LOG_ERR("Unable to set SGP40_ATTR_RAW_HUM_TEMP attr. Err: %i", err);
+        }
+
         LOG_DBG("Getting from %s chan %i", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
 
         err = sensor_sample_fetch_chan(aqw_sensors[i]->dev, aqw_sensors[i]->chan);
@@ -39,6 +60,18 @@ static void aqw_sensor_work_fn(struct k_work *work)
         {
             LOG_ERR("Unable to fetch from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
             continue;
+        }
+
+        /* Temperature and humdidity */
+        if (aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
+            aqw_sensors[i]->type == AQW_HUMIDITY_SENSOR)
+        {
+            struct sensor_value val;
+            val.val1 = 0;
+
+            err = sensor_attr_set(aqw_sensors[i]->dev, aqw_sensors[i]->chan, SHTC3_ATTR_USE_RAW, &val);
+            if (err)
+                LOG_ERR("Unable to set SHTC3_ATTR_USE_RAW attr. Err: %i", err);
         }
 
         /* Then copy data over */
@@ -56,6 +89,41 @@ static void aqw_sensor_work_fn(struct k_work *work)
 
         /* Assign timestamp */
         data[i].ts = k_uptime_ticks();
+
+        /* Enable retrieval of the raw value */
+        if (aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
+            aqw_sensors[i]->type == AQW_HUMIDITY_SENSOR)
+        {
+            struct sensor_value val;
+            val.val1 = 1;
+
+            err = sensor_attr_set(aqw_sensors[i]->dev, aqw_sensors[i]->chan, SHTC3_ATTR_USE_RAW, &val);
+            if (err)
+                LOG_ERR("Unable to set SHTC3_ATTR_USE_RAW attr. Err: %i", err);
+
+            /* Then fetch the raw value */
+            err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &val);
+            if (err)
+            {
+                LOG_ERR("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+                continue;
+            }
+
+            /* Save raw data as per sensor type */
+            switch (aqw_sensors[i]->type)
+            {
+            case AQW_TEMPERATURE_SENSOR:
+                memcpy(raw_temperature_value, &val, sizeof(raw_temperature_value));
+                LOG_HEXDUMP_DBG(&val, sizeof(struct sensor_value), "");
+                break;
+            case AQW_HUMIDITY_SENSOR:
+                memcpy(raw_humidity_value, &val, sizeof(raw_humidity_value));
+                LOG_HEXDUMP_DBG(&val, sizeof(struct sensor_value), "");
+                break;
+            default:
+                break;
+            };
+        }
     }
 
     /* call callback if not null */
@@ -113,6 +181,10 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
         }
     }
 
+    /* Clear raw sensor data */
+    memset(raw_humidity_value, 0, sizeof(raw_humidity_value));
+    memset(raw_temperature_value, 0, sizeof(raw_temperature_value));
+
     /* Initialize work */
     k_work_init_delayable(&aqw_sensor_work, aqw_sensor_work_fn);
 
@@ -137,6 +209,8 @@ char *aqw_sensor_type_to_string(enum aqw_sensor_type type)
         return "Humidity";
     case AQW_PM25_SENSOR:
         return "PM2.5";
+    case AQW_VOC_SENSOR:
+        return "VOC";
     default:
         return "Unknown";
     }
