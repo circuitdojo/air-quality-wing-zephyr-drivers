@@ -1,0 +1,11 @@
+
+manifest:
+  projects:
+    # Sensirion algoritm
+    - name: embedded-sgp
+      path: aqw/ext/embedded-sgp
+      revision: 4f69c0d8e2f7192aeaf0d268211b1f54af50146b
+      url: https://github.com/Sensirion/embedded-sgp.git
+  self:
+    # This repository should be cloned to 
+    path: aqw
