@@ -74,8 +74,6 @@ static int sgp40_sample_fetch(const struct device *dev,
             return err;
         }
 
-        LOG_HEXDUMP_DBG(rx_buf, sizeof(rx_buf), "rx_buf: ");
-
         /* Check CRC */
         uint8_t crc = sensirion_calc_crc(rx_buf);
         if (rx_buf[2] != crc)
@@ -85,8 +83,8 @@ static int sgp40_sample_fetch(const struct device *dev,
         }
 
         /* Copy data over */
-        dat->voc.val1 = 0;
-        memcpy(&dat->voc.val1, rx_buf, sizeof(rx_buf) - 1);
+        /* Note need to swap the bytes since the endianess is different */
+        dat->voc.val1 = (rx_buf[0] << 8) + (rx_buf[1]);
         dat->voc.val2 = 0;
     }
 

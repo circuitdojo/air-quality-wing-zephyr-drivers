@@ -70,5 +70,6 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
 int aqw_sensor_start_fetch(void);
 
 char *aqw_sensor_type_to_string(enum aqw_sensor_type type);
+char *aqw_sensor_unit_to_string(enum aqw_sensor_type type);
 
 #endif /* _AQW_H */

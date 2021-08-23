@@ -8,6 +8,7 @@
 #include <shtc3/shtc3.h>
 #include <sgp40/sgp40.h>
 #include <aqw.h>
+#include <sensirion_voc_algorithm.h>
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(aqw, CONFIG_AQW_LOG_LEVEL);
@@ -16,6 +17,7 @@ static struct aqw_sensor **aqw_sensors;
 static size_t aqw_sensor_count = 0;
 static aqw_sensor_data_ready_t cb;
 static struct k_work_delayable aqw_sensor_work;
+static VocAlgorithmParams voc_params;
 
 static uint8_t raw_humidity_value[3];
 static uint8_t raw_temperature_value[3];
@@ -90,6 +92,20 @@ static void aqw_sensor_work_fn(struct k_work *work)
         /* Assign timestamp */
         data[i].ts = k_uptime_ticks();
 
+        /* Calculate the VOC index */
+        if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
+        {
+
+            /* TODO: determine last reading. */
+
+            uint32_t index = 0;
+
+            VocAlgorithm_process(&voc_params, data[i].val.val1, &index);
+
+            data[i].val.val1 = index;
+            data[i].val.val2 = 0;
+        }
+
         /* Enable retrieval of the raw value */
         if (aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
             aqw_sensors[i]->type == AQW_HUMIDITY_SENSOR)
@@ -163,6 +179,9 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
     /* Set callback */
     cb = _cb;
 
+    /* Init VOC algorithm parameters */
+    VocAlgorithm_init(&voc_params);
+
     /* Get the device for each sensor */
     for (int i = 0; i < aqw_sensor_count; i++)
     {
@@ -213,5 +232,22 @@ char *aqw_sensor_type_to_string(enum aqw_sensor_type type)
         return "VOC";
     default:
         return "Unknown";
+    }
+}
+
+char *aqw_sensor_unit_to_string(enum aqw_sensor_type type)
+{
+    switch (type)
+    {
+    case AQW_TEMPERATURE_SENSOR:
+        return " °c";
+    case AQW_HUMIDITY_SENSOR:
+        return " %";
+    case AQW_PM25_SENSOR:
+        return " ppm";
+    case AQW_VOC_SENSOR:
+        return "";
+    default:
+        return "";
     }
 }
