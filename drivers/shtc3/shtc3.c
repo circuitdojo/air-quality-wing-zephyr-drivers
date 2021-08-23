@@ -9,7 +9,9 @@
 #include <device.h>
 #include <drivers/i2c.h>
 #include <drivers/sensor.h>
+
 #include "shtc3.h"
+#include <sensirion_common.h>
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(shtc3, CONFIG_SENSOR_LOG_LEVEL);
@@ -72,6 +74,14 @@ static int shtc3_sample_fetch_humidity(struct shtc3_data *dat)
         return err;
     }
 
+    /* Check crc */
+    uint8_t crc = sensirion_calc_crc(dat->raw_humidity);
+    if (crc != dat->raw_humidity[2])
+    {
+        LOG_WRN("CRC error. CRC: %x", crc);
+        return -EPROTO;
+    }
+
     /* Calculate the humidity */
     uint16_t humidity = (dat->raw_humidity[0] << 8) + dat->raw_humidity[1];
     double humidity_float = humidity * 100 / pow(2, 16);
@@ -96,6 +106,14 @@ static int shtc3_sample_fetch_temp(struct shtc3_data *dat)
     {
         LOG_WRN("Unable to read temperature. Err: %i", err);
         return err;
+    }
+
+    /* Check crc */
+    uint8_t crc = sensirion_calc_crc(dat->raw_temp);
+    if (crc != dat->raw_temp[2])
+    {
+        LOG_WRN("CRC error. CRC: %x", crc);
+        return -EPROTO;
     }
 
     /* Calculate the temperature */

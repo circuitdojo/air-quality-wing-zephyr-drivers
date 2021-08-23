@@ -5,3 +5,6 @@
 # Subdirectories
 add_subdirectory_ifdef(CONFIG_SGP40 sgp40)
 add_subdirectory_ifdef(CONFIG_SHTC3 shtc3)
+
+# Common directory
+zephyr_include_directories(sensirion-common)

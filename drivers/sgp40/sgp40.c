@@ -10,7 +10,9 @@
 #include <drivers/i2c.h>
 #include <drivers/sensor.h>
 #include <drivers/gpio.h>
+
 #include "sgp40.h"
+#include <sensirion_common.h>
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(sgp40, CONFIG_SENSOR_LOG_LEVEL);
@@ -72,7 +74,15 @@ static int sgp40_sample_fetch(const struct device *dev,
             return err;
         }
 
-        /* TODO: check CRC */
+        LOG_HEXDUMP_DBG(rx_buf, sizeof(rx_buf), "rx_buf: ");
+
+        /* Check CRC */
+        uint8_t crc = sensirion_calc_crc(rx_buf);
+        if (rx_buf[2] != crc)
+        {
+            LOG_WRN("CRC does not match! CRC: %x", crc);
+            return -EPROTO;
+        }
 
         /* Copy data over */
         dat->voc.val1 = 0;
