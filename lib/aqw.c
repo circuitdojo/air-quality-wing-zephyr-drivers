@@ -120,8 +120,8 @@ static void aqw_sensor_work_fn(struct k_work *work)
 
             VocAlgorithm_process(&voc_params, data[i].val.val1, &index);
 
-            /* If value is 0 then the algorithm is still "warming up" */
-            if (index == 0)
+            /* If value is < SGP40_WARMUP_THRESHOLD then the algorithm is still "warming up" */
+            if (index < SGP40_WARMUP_THRESHOLD)
                 continue;
 
             /* If index is valid, make sure interval is updated */
