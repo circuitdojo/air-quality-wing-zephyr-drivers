@@ -158,8 +158,8 @@ static int sgp40_init(const struct device *dev)
     k_sleep(K_USEC(800));
 #endif
 
-    uint8_t power_off_cmd[] = SGP40_SOFT_RST_CMD;
-    i2c_write(data->i2c_dev, power_off_cmd, sizeof(power_off_cmd), DT_INST_REG_ADDR(0));
+    uint8_t soft_rst_cmd[] = SGP40_SOFT_RST_CMD;
+    i2c_write(data->i2c_dev, soft_rst_cmd, sizeof(soft_rst_cmd), DT_INST_REG_ADDR(0));
 
     return 0;
 }
