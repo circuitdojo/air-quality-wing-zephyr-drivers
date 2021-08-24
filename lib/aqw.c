@@ -53,7 +53,7 @@ static void aqw_sensor_work_fn(struct k_work *work)
         /* Skip if too early */
         int64_t last = aqw_sensors[i]->last_measurment_ticks;
         int64_t diff = k_uptime_get() - last;
-        if (diff < interval)
+        if (diff < interval && last != 0)
         {
             LOG_DBG("not ready %lli", diff);
             continue;
