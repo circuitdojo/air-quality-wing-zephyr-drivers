@@ -6,6 +6,8 @@
 #ifndef _SGP40_H
 #define _SGP40_H
 
+#define SGP40_WARMUP_INTERVAL 1
+
 #define SGP40_MEAS_RAW_NO_HUM_OR_TEMP_CMD               \
     {                                                   \
         0x26, 0x0F, 0x80, 0x00, 0xA2, 0x66, 0x66, 0x93, \

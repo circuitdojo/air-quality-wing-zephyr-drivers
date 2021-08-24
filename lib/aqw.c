@@ -21,12 +21,14 @@ static VocAlgorithmParams voc_params;
 
 static uint8_t raw_humidity_value[3];
 static uint8_t raw_temperature_value[3];
+static bool warmup = true;
 
 static void aqw_sensor_work_fn(struct k_work *work)
 {
 
     int err = 0;
     struct aqw_sensor_data data[aqw_sensor_count];
+    uint64_t schedule_next = 0;
 
     /* Check each sensor */
     for (int i = 0; i < aqw_sensor_count; i++)
@@ -38,6 +40,24 @@ static void aqw_sensor_work_fn(struct k_work *work)
         /* If not null fetch */
         if (aqw_sensors[i]->dev == NULL)
             continue;
+
+        /* Use the warmup interval */
+        uint64_t interval = aqw_sensors[i]->interval * MSEC_PER_SEC;
+        if (warmup)
+            interval = aqw_sensors[i]->warmup_interval * MSEC_PER_SEC;
+
+        /* Schedule next check */
+        if (schedule_next == 0 || interval < schedule_next)
+            schedule_next = interval;
+
+        /* Skip if too early */
+        int64_t last = aqw_sensors[i]->last_measurment_ticks;
+        int64_t diff = k_uptime_get() - last;
+        if (diff < interval)
+        {
+            LOG_DBG("not ready %lli", diff);
+            continue;
+        }
 
         /* Update calibration parameters if they're available for the SGP40 */
         if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
@@ -90,8 +110,6 @@ static void aqw_sensor_work_fn(struct k_work *work)
         if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
         {
 
-            /* TODO: determine last reading. */
-
             uint32_t index = 0;
 
             VocAlgorithm_process(&voc_params, data[i].val.val1, &index);
@@ -99,6 +117,9 @@ static void aqw_sensor_work_fn(struct k_work *work)
             /* If value is 0 then the algorithm is still "warming up" */
             if (index == 0)
                 continue;
+
+            /* If index is valid, make sure interval is updated */
+            warmup = false;
 
             data[i].val.val1 = index;
             data[i].val.val2 = 0;
@@ -108,7 +129,9 @@ static void aqw_sensor_work_fn(struct k_work *work)
         data[i].type = aqw_sensors[i]->type;
 
         /* Assign timestamp */
-        data[i].ts = k_uptime_ticks();
+        uint64_t now = k_uptime_get();
+        data[i].ts = now;
+        aqw_sensors[i]->last_measurment_ticks = now;
 
         /* Enable retrieval of the raw value */
         if (aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
@@ -151,6 +174,9 @@ static void aqw_sensor_work_fn(struct k_work *work)
     {
         cb(data, aqw_sensor_count);
     }
+
+    /* schedule next */
+    k_work_reschedule(&aqw_sensor_work, K_MSEC(schedule_next));
 }
 
 int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data_ready_t _cb)
@@ -202,6 +228,21 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
         {
             LOG_DBG("Found %s.", aqw_sensors[i]->dev_name);
         }
+
+        /* Set hardcoded warmup interval */
+        if (aqw_sensors[i]->type == AQW_VOC_SENSOR ||
+            aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
+            aqw_sensors[i]->type == AQW_HUMIDITY_SENSOR)
+        {
+            aqw_sensors[i]->warmup_interval = SGP40_WARMUP_INTERVAL;
+        }
+        else
+        {
+            aqw_sensors[i]->warmup_interval = aqw_sensors[i]->interval;
+        }
+
+        /* Last measurement ticks*/
+        aqw_sensors[i]->last_measurment_ticks = 0;
     }
 
     /* Clear raw sensor data */
