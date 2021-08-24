@@ -86,12 +86,6 @@ static void aqw_sensor_work_fn(struct k_work *work)
 
         LOG_DBG("Data from %s: %i.%i", aqw_sensors[i]->dev_name, data[i].val.val1, data[i].val.val2);
 
-        /* Assign type */
-        data[i].type = aqw_sensors[i]->type;
-
-        /* Assign timestamp */
-        data[i].ts = k_uptime_ticks();
-
         /* Calculate the VOC index */
         if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
         {
@@ -102,9 +96,19 @@ static void aqw_sensor_work_fn(struct k_work *work)
 
             VocAlgorithm_process(&voc_params, data[i].val.val1, &index);
 
+            /* If value is 0 then the algorithm is still "warming up" */
+            if (index == 0)
+                continue;
+
             data[i].val.val1 = index;
             data[i].val.val2 = 0;
         }
+
+        /* Assign type */
+        data[i].type = aqw_sensors[i]->type;
+
+        /* Assign timestamp */
+        data[i].ts = k_uptime_ticks();
 
         /* Enable retrieval of the raw value */
         if (aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
@@ -240,9 +244,9 @@ char *aqw_sensor_unit_to_string(enum aqw_sensor_type type)
     switch (type)
     {
     case AQW_TEMPERATURE_SENSOR:
-        return " °c";
+        return "°C";
     case AQW_HUMIDITY_SENSOR:
-        return " %";
+        return "%";
     case AQW_PM25_SENSOR:
         return " ppm";
     case AQW_VOC_SENSOR:

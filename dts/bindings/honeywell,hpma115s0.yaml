@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+
+description: Honeywell HPMA115S0 Particulate Sensor
+
+compatible: "honeywell,hpma115s0"
+
+include: uart-device.yaml
+
+properties:
+    enable-gpios:
+      type: phandle-array
+      required: false
+      description: |
+        (Optional) power enable for the HPMA115S0.
+

@@ -64,7 +64,7 @@ static int sgp40_sample_fetch(const struct device *dev,
             return err;
         }
 
-        /* TODO: do this async */
+        /* Wait for the data */
         k_sleep(K_MSEC(30));
 
         err = i2c_read(dat->i2c_dev, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
@@ -86,6 +86,15 @@ static int sgp40_sample_fetch(const struct device *dev,
         /* Note need to swap the bytes since the endianess is different */
         dat->voc.val1 = (rx_buf[0] << 8) + (rx_buf[1]);
         dat->voc.val2 = 0;
+
+        /* Power heater off */
+        uint8_t heater_off_cmd[] = SGP40_HEATER_OFF_CMD;
+        err = i2c_write(dat->i2c_dev, heater_off_cmd, sizeof(heater_off_cmd), DT_INST_REG_ADDR(0));
+        if (err)
+        {
+            LOG_WRN("Unable to power off SGP40 heater. Err: %i", err);
+            return err;
+        }
     }
 
     break;

@@ -12,7 +12,7 @@
     }
 #define SGP40_HEATER_OFF_CMD \
     {                        \
-        0x5C, 0x24           \
+        0x36, 0x15           \
     }
 #define SGP40_SOFT_RST_CMD \
     {                      \

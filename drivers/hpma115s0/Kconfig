@@ -1,0 +1,9 @@
+#
+# Copyright (c) 2021 Circuit Dojo LLC
+#
+
+menuconfig HPMA115S0
+	bool "Honeywell HPMA115S0 Particulate Sensor"
+	depends on I2C
+	help
+	  Enable driver for Honeywell's HPMA115S0 particulate sensors.

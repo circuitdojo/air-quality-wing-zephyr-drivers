@@ -3,4 +3,5 @@
 #
 
 rsource "sgp40/Kconfig"
+rsource "hpma115s0/Kconfig"
 rsource "shtc3/Kconfig"
