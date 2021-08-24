@@ -70,6 +70,12 @@ static void aqw_sensor_work_fn(struct k_work *work)
             /* Set the humidity attr */
             memcpy(&val.val2, raw_humidity_value, sizeof(raw_humidity_value));
 
+            if (val.val1 == 0 || val.val2 == 0)
+            {
+                LOG_DBG("Raw data invalid.");
+                continue;
+            }
+
             err = sensor_attr_set(aqw_sensors[i]->dev, aqw_sensors[i]->chan, SGP40_ATTR_RAW_HUM_TEMP, &val);
             if (err)
                 LOG_ERR("Unable to set SGP40_ATTR_RAW_HUM_TEMP attr. Err: %i", err);

@@ -173,8 +173,12 @@ static int sgp40_attr_set(const struct device *dev,
     enum sgp40_attribute sgp40_attr = (enum sgp40_attribute)attr;
     struct sgp40_data *data = dev->data;
 
+    /* Check if we're setting the temp/humidity info */
     if (chan == SENSOR_CHAN_VOC && sgp40_attr == SGP40_ATTR_RAW_HUM_TEMP)
     {
+        /* Invalid if 0 */
+        if (val->val1 == 0 || val->val2 == 0)
+            return -EINVAL;
 
         uint8_t *temp_bytes = (uint8_t *)&val->val1;
         uint8_t *hum_bytes = (uint8_t *)&val->val2;
