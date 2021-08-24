@@ -48,7 +48,7 @@ static int hpma115s0_sample_fetch(const struct device *dev,
         if (data->gpio != NULL)
             gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_OUTPUT_HIGH);
 
-        k_sleep(K_MSEC(2980));
+        k_sleep(K_MSEC(3980));
 
         /* Reset memory before recieving */
         memset(data->rx_buf, 0, sizeof(data->rx_buf));
