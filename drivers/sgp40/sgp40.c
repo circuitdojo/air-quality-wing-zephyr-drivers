@@ -56,22 +56,27 @@ static int sgp40_sample_fetch(const struct device *dev,
             memcpy(&cmd[5], dat->temperature, sizeof(dat->temperature));
         }
 
-        /* Get the VOC level */
-        err = i2c_write(dat->i2c_dev, cmd, sizeof(cmd), DT_INST_REG_ADDR(0));
-        if (err)
+        /* Multiple readings since the first doesn't work.. */
+        for (int i = 0; i < 2; i++)
         {
-            LOG_WRN("Unable to write VOC request. Err: %i", err);
-            return err;
-        }
 
-        /* Wait for the data */
-        k_sleep(K_MSEC(30));
+            /* Get the VOC level */
+            err = i2c_write(dat->i2c_dev, cmd, sizeof(cmd), DT_INST_REG_ADDR(0));
+            if (err)
+            {
+                LOG_WRN("Unable to write VOC request. Err: %i", err);
+                return err;
+            }
 
-        err = i2c_read(dat->i2c_dev, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
-        if (err)
-        {
-            LOG_WRN("Unable to read VOC data. Err: %i", err);
-            return err;
+            /* Wait for the data */
+            k_sleep(K_MSEC(35));
+
+            err = i2c_read(dat->i2c_dev, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
+            if (err)
+            {
+                LOG_WRN("Unable to read VOC data. Err: %i", err);
+                return err;
+            }
         }
 
         /* Check CRC */
