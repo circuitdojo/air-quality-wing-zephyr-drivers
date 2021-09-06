@@ -206,9 +206,13 @@ static const struct sensor_driver_api sgp40_api = {
     .channel_get = &sgp40_channel_get,
 };
 
-static struct sgp40_data sgp40_data;
+/* Main instantiation matcro */
+#define SGP40_DEFINE(inst)                                       \
+    static struct sgp40_data sgp40_data_##inst;                  \
+    DEVICE_DT_INST_DEFINE(inst,                                  \
+                          sgp40_init, NULL,                      \
+                          &sgp40_data_##inst, NULL, POST_KERNEL, \
+                          CONFIG_SENSOR_INIT_PRIORITY, &sgp40_api);
 
-DEVICE_DEFINE(sgp40, DT_INST_LABEL(0),
-              sgp40_init, NULL,
-              &sgp40_data, NULL, POST_KERNEL,
-              CONFIG_SENSOR_INIT_PRIORITY, &sgp40_api);
+/* Create the struct device for every status "okay"*/
+DT_INST_FOREACH_STATUS_OKAY(SGP40_DEFINE)

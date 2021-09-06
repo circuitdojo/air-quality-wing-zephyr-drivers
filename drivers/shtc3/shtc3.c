@@ -309,9 +309,13 @@ static const struct sensor_driver_api shtc3_api = {
     .channel_get = &shtc3_channel_get,
 };
 
-static struct shtc3_data shtc3_data;
+/* Main instantiation matcro */
+#define SHTC3_DEFINE(inst)                                       \
+    static struct shtc3_data shtc3_data_##inst;                  \
+    DEVICE_DT_INST_DEFINE(inst,                                  \
+                          shtc3_init, NULL,                      \
+                          &shtc3_data_##inst, NULL, POST_KERNEL, \
+                          CONFIG_SENSOR_INIT_PRIORITY, &shtc3_api);
 
-DEVICE_DEFINE(shtc3, DT_INST_LABEL(0),
-              shtc3_init, NULL,
-              &shtc3_data, NULL, POST_KERNEL,
-              CONFIG_SENSOR_INIT_PRIORITY, &shtc3_api);
+/* Create the struct device for every status "okay"*/
+DT_INST_FOREACH_STATUS_OKAY(SHTC3_DEFINE)
