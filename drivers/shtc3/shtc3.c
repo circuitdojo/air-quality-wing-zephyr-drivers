@@ -3,7 +3,7 @@
  * @copyright Copyright Circuit Dojo LLC 2021
  */
 
-#define DT_DRV_COMPAT sensirion_shtc3
+#define DT_DRV_COMPAT sensirion_shtc3cd
 
 #include <math.h>
 #include <device.h>

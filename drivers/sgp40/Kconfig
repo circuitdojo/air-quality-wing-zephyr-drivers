@@ -2,13 +2,13 @@
 # Copyright (c) 2021 Circuit Dojo LLC
 #
 
-menuconfig SGP40
+menuconfig SGP40_CD
 	bool "SGP40 TVOC Sensor"
 	depends on I2C
 	help
 	  Enable driver for SGP40 TVOC sensors.
 
-if SGP40
+if SGP40_CD
 
 config SGP40_DRV_NAME
 	string "Sensirion SGP40 Driver's name"
@@ -16,4 +16,4 @@ config SGP40_DRV_NAME
 	help
 	  This option sets the driver name
 
-endif # SGP40
+endif # SGP40_CD

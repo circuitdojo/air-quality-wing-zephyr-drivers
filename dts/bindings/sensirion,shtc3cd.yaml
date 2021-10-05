@@ -4,6 +4,6 @@
 
 description: Sensirion SHTC3 Temp/Humidity Sensor
 
-compatible: "sensirion,shtc3"
+compatible: "sensirion,shtc3cd"
 
 include: i2c-device.yaml
