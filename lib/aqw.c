@@ -41,12 +41,12 @@ static void aqw_sensor_work_fn(struct k_work *work)
         if (aqw_sensors[i]->dev == NULL)
             continue;
 
-        /* Use the warmup interval */
+        /* Use the keep alive interval -- useful for SGP40 where it NEEDs to be 1s*/
         uint64_t interval = aqw_sensors[i]->interval * MSEC_PER_SEC;
-        if (warmup)
-            interval = aqw_sensors[i]->warmup_interval * MSEC_PER_SEC;
+        if (aqw_sensors[i]->keep_alive_interval > 0)
+            interval = aqw_sensors[i]->keep_alive_interval * MSEC_PER_SEC;
 
-        /* Schedule next check */
+        /* Schedule next check -- i.e. gets the next event timing */
         if (schedule_next == 0 || interval < schedule_next)
             schedule_next = interval;
 
@@ -129,6 +129,15 @@ static void aqw_sensor_work_fn(struct k_work *work)
 
             data[i].val.val1 = index;
             data[i].val.val2 = 0;
+
+            /* Skip if the measurement interval isn't within range*/
+            int64_t last = aqw_sensors[i]->last_measurment_ticks;
+            int64_t diff = k_uptime_get() - last;
+            if (diff < aqw_sensors[i]->interval * MSEC_PER_SEC)
+            {
+                LOG_DBG("sgp40 waiting.. %lli", diff);
+                continue;
+            }
         }
 
         /* Assign type */
@@ -236,15 +245,13 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
         }
 
         /* Set hardcoded warmup interval */
-        if (aqw_sensors[i]->type == AQW_VOC_SENSOR ||
-            aqw_sensors[i]->type == AQW_TEMPERATURE_SENSOR ||
-            aqw_sensors[i]->type == AQW_HUMIDITY_SENSOR)
+        if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
         {
-            aqw_sensors[i]->warmup_interval = SGP40_WARMUP_INTERVAL;
+            aqw_sensors[i]->keep_alive_interval = SGP40_WARMUP_INTERVAL;
         }
         else
         {
-            aqw_sensors[i]->warmup_interval = aqw_sensors[i]->interval;
+            aqw_sensors[i]->keep_alive_interval = 0;
         }
 
         /* Last measurement ticks*/

@@ -57,7 +57,7 @@ static int sgp40_sample_fetch(const struct device *dev,
         }
 
         /* Multiple readings since the first doesn't work.. */
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 1; i++)
         {
 
             /* Get the VOC level */
@@ -69,7 +69,7 @@ static int sgp40_sample_fetch(const struct device *dev,
             }
 
             /* Wait for the data */
-            k_sleep(K_MSEC(35));
+            k_sleep(K_MSEC(30));
 
             err = i2c_read(dat->i2c_dev, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
             if (err)
@@ -93,13 +93,13 @@ static int sgp40_sample_fetch(const struct device *dev,
         dat->voc.val2 = 0;
 
         /* Power heater off */
-        uint8_t heater_off_cmd[] = SGP40_HEATER_OFF_CMD;
-        err = i2c_write(dat->i2c_dev, heater_off_cmd, sizeof(heater_off_cmd), DT_INST_REG_ADDR(0));
-        if (err)
-        {
-            LOG_WRN("Unable to power off SGP40 heater. Err: %i", err);
-            return err;
-        }
+        // uint8_t heater_off_cmd[] = SGP40_HEATER_OFF_CMD;
+        // err = i2c_write(dat->i2c_dev, heater_off_cmd, sizeof(heater_off_cmd), DT_INST_REG_ADDR(0));
+        // if (err)
+        // {
+        //     LOG_WRN("Unable to power off SGP40 heater. Err: %i", err);
+        //     return err;
+        // }
     }
 
     break;
@@ -165,6 +165,10 @@ static int sgp40_init(const struct device *dev)
 
     uint8_t soft_rst_cmd[] = SGP40_SOFT_RST_CMD;
     i2c_write(data->i2c_dev, soft_rst_cmd, sizeof(soft_rst_cmd), DT_INST_REG_ADDR(0));
+
+    /* Start hot plate */
+    uint8_t start_cmd[] = SGP40_MEAS_RAW_NO_HUM_OR_TEMP_CMD;
+    i2c_write(data->i2c_dev, start_cmd, sizeof(start_cmd), DT_INST_REG_ADDR(0));
 
     return 0;
 }

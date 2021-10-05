@@ -43,7 +43,7 @@ struct aqw_sensor
     enum aqw_sensor_type type;
     enum sensor_channel chan;
     uint32_t interval;
-    uint32_t warmup_interval;
+    uint32_t keep_alive_interval;
     uint64_t last_measurment_ticks;
     uint8_t *dev_name;
     const struct device *dev;

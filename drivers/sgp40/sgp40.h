@@ -7,7 +7,7 @@
 #define _SGP40_H
 
 #define SGP40_WARMUP_INTERVAL 1
-#define SGP40_WARMUP_THRESHOLD 75
+#define SGP40_WARMUP_THRESHOLD 50
 
 #define SGP40_MEAS_RAW_NO_HUM_OR_TEMP_CMD               \
     {                                                   \
