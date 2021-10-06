@@ -13,6 +13,13 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(aqw, CONFIG_AQW_LOG_LEVEL);
 
+/* Macro defines */
+#define APP_EVENT_QUEUE_SIZE 24
+
+/* Work queue */
+K_THREAD_STACK_DEFINE(aqw_stack_area, 2048);
+struct k_work_q aqw_work_q;
+
 static struct aqw_sensor **aqw_sensors;
 static size_t aqw_sensor_count = 0;
 static aqw_sensor_data_ready_t cb;
@@ -29,6 +36,7 @@ static void aqw_sensor_work_fn(struct k_work *work)
     int err = 0;
     struct aqw_sensor_data data[aqw_sensor_count];
     uint64_t schedule_next = 0;
+    bool has_data = false;
 
     /* Check each sensor */
     for (int i = 0; i < aqw_sensor_count; i++)
@@ -133,12 +141,15 @@ static void aqw_sensor_work_fn(struct k_work *work)
             /* Skip if the measurement interval isn't within range*/
             int64_t last = aqw_sensors[i]->last_measurment_ticks;
             int64_t diff = k_uptime_get() - last;
-            if (diff < aqw_sensors[i]->interval * MSEC_PER_SEC)
+            if (diff < aqw_sensors[i]->interval * MSEC_PER_SEC && last != 0)
             {
                 LOG_DBG("sgp40 waiting.. %lli", diff);
                 continue;
             }
         }
+
+        /* Set flag */
+        has_data = true;
 
         /* Assign type */
         data[i].type = aqw_sensors[i]->type;
@@ -185,13 +196,14 @@ static void aqw_sensor_work_fn(struct k_work *work)
     }
 
     /* call callback if not null */
-    if (cb != NULL)
+    if (cb != NULL && has_data)
     {
         cb(data, aqw_sensor_count);
     }
 
     /* schedule next */
-    k_work_reschedule(&aqw_sensor_work, K_MSEC(schedule_next));
+    LOG_DBG("Schedule next %lli", schedule_next);
+    k_work_reschedule_for_queue(&aqw_work_q, &aqw_sensor_work, K_MSEC(schedule_next));
 }
 
 int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data_ready_t _cb)
@@ -214,6 +226,11 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
     /* Callback is necessary */
     if (_cb == NULL)
         return -EINVAL;
+
+    /* Init work queue */
+    k_work_queue_start(&aqw_work_q, aqw_stack_area,
+                       K_THREAD_STACK_SIZEOF(aqw_stack_area),
+                       CONFIG_SYSTEM_WORKQUEUE_PRIORITY, NULL);
 
     /* Copy pointer to array of pointers */
     aqw_sensors = _sensors;
@@ -271,7 +288,7 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
 int aqw_sensor_start_fetch(void)
 {
 
-    k_work_reschedule(&aqw_sensor_work, K_NO_WAIT);
+    k_work_reschedule_for_queue(&aqw_work_q, &aqw_sensor_work, K_NO_WAIT);
 
     return 0;
 }
