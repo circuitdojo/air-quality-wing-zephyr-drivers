@@ -4,7 +4,7 @@
 
 menuconfig AQW
 	bool "Air Quality Wing Sensor Library"
-	depends on SHTC3 || SGP40
+	depends on QCBOR
 	depends on NEWLIB_LIBC
 	help
 	  Enable Air Quality Wing sensor library.
