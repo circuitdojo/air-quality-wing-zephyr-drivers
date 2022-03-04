@@ -4,8 +4,6 @@
 
 menuconfig AQW
 	bool "Air Quality Wing Sensor Library"
-	depends on QCBOR
-	depends on NEWLIB_LIBC
 	help
 	  Enable Air Quality Wing sensor library.
 
@@ -15,5 +13,7 @@ if AQW
 module = AQW
 module-str = aqw
 source "subsys/logging/Kconfig.template.log_config"
+
+rsource "codec/Kconfig"
 
 endif # AQW

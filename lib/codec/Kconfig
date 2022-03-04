@@ -1,0 +1,6 @@
+
+menuconfig AQW_CODEC
+	bool "Air Quality Wing Codec Library"
+	select QCBOR
+	help
+	  Enable Air Quality Wing codec library.
