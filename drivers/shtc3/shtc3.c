@@ -84,7 +84,7 @@ static int shtc3_sample_fetch_humidity(struct shtc3_data *dat)
 
     /* Calculate the humidity */
     uint16_t humidity = (dat->raw_humidity[0] << 8) + dat->raw_humidity[1];
-    double humidity_float = humidity * 100 / pow(2, 16);
+    double humidity_float = humidity * 100 / (2 << 15);
 
     /* Convert! */
     sensor_value_from_double(&dat->humidity, humidity_float);
@@ -118,7 +118,7 @@ static int shtc3_sample_fetch_temp(struct shtc3_data *dat)
 
     /* Calculate the temperature */
     uint16_t temperature = (dat->raw_temp[0] << 8) + dat->raw_temp[1];
-    double temperature_float = (temperature * 175) / pow(2, 16) - 45;
+    double temperature_float = (temperature * 175) / (2 << 15) - 45;
 
     /* Convert! */
     sensor_value_from_double(&dat->temperature, temperature_float);
