@@ -57,6 +57,11 @@ static int hpma115s0_sample_fetch(const struct device *dev,
         err = uart_rx_enable(data->uart_dev, data->rx_buf, 32, 10);
         if (err)
         {
+
+            /* Power off */
+            if (data->gpio != NULL)
+                gpio_pin_set(data->gpio, data->power_en_pin, 0);
+
             LOG_ERR("Unable to recieve bytes! Err %i", err);
             return err;
         }
