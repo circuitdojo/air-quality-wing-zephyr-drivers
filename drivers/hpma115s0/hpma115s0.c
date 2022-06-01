@@ -17,13 +17,21 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(hpma115s0, CONFIG_SENSOR_LOG_LEVEL);
 
+#ifdef CONFIG_SOC_FAMILY_STM32
+#define RX_TIMEOUT SYS_FOREVER_US
+#else
+#define RX_TIMEOUT 10
+#endif
+
+#define FRAME_SIZE 32
+
 struct hpma115s0_data
 {
     /* Comms */
     const struct device *uart_dev;
     struct sensor_value pm25;
     bool ready;
-    uint8_t rx_buf[64];
+    uint8_t rx_buf[FRAME_SIZE * 2];
 
     /* Enable pin */
     const struct device *gpio;
@@ -46,15 +54,18 @@ static int hpma115s0_sample_fetch(const struct device *dev,
 
         /* Power enable */
         if (data->gpio != NULL)
-            gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_OUTPUT_HIGH);
+            gpio_pin_set(data->gpio, data->power_en_pin, 1);
 
         k_sleep(K_MSEC(3980));
 
         /* Reset memory before recieving */
         memset(data->rx_buf, 0, sizeof(data->rx_buf));
 
+        /* Disable first */
+        uart_rx_disable(data->uart_dev);
+
         /* Start UART rx and read bytes */
-        err = uart_rx_enable(data->uart_dev, data->rx_buf, 32, 10);
+        err = uart_rx_enable(data->uart_dev, data->rx_buf, FRAME_SIZE + 1, RX_TIMEOUT);
         if (err)
         {
 
@@ -65,13 +76,6 @@ static int hpma115s0_sample_fetch(const struct device *dev,
             LOG_ERR("Unable to recieve bytes! Err %i", err);
             return err;
         }
-
-        /* Wait until we get our measurement */
-        k_sleep(K_MSEC(100));
-
-        /* Power off */
-        if (data->gpio != NULL)
-            gpio_pin_set(data->gpio, data->power_en_pin, 0);
 
         break;
     default:
@@ -133,15 +137,24 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
     case UART_RX_RDY:
         LOG_DBG("Received data %d bytes", evt->data.rx.len);
 
-        if (evt->data.rx.buf[0] == 0x42 && evt->data.rx.buf[1] == 0x4d)
+        for (int i = 0; i < evt->data.rx.len; i++)
         {
-            LOG_HEXDUMP_DBG(evt->data.rx.buf, evt->data.rx.len, "bytes: ");
-            data->pm25.val1 = (evt->data.rx.buf[6] << 8) + evt->data.rx.buf[7];
-            data->ready = true;
+            if (evt->data.rx.buf[i] == 0x42 &&
+                evt->data.rx.buf[i + 1] == 0x4d &&
+                evt->data.rx.len - i >= FRAME_SIZE)
+            {
+
+                LOG_HEXDUMP_DBG(evt->data.rx.buf, evt->data.rx.len, "bytes: ");
+                data->pm25.val1 = (evt->data.rx.buf[i + 6] << 8) + evt->data.rx.buf[i + 7];
+                data->ready = true;
+
+                break;
+            }
         }
 
-        /* Disable RX */
-        // uart_rx_disable(dev);
+        /* Turn it off once we get data */
+        if (data->gpio != NULL)
+            gpio_pin_set(data->gpio, data->power_en_pin, 0);
 
         break;
     case UART_RX_BUF_REQUEST:
@@ -181,7 +194,7 @@ static int hpma115s0_init(const struct device *dev)
         LOG_WRN("Power enable pin is not defined!");
 
     /* Default off */
-    gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_DISCONNECTED);
+    gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_OUTPUT_INACTIVE);
 #endif
 
     return 0;

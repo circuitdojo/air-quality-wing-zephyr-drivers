@@ -114,7 +114,7 @@ static void aqw_sensor_work_fn(struct k_work *work)
         err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &data[i].val);
         if (err)
         {
-            LOG_ERR("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+            LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
             continue;
         }
 
@@ -174,7 +174,7 @@ static void aqw_sensor_work_fn(struct k_work *work)
             err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &val);
             if (err)
             {
-                LOG_ERR("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+                LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
                 continue;
             }
 
