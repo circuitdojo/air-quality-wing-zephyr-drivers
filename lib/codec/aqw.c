@@ -1,5 +1,5 @@
 #include <codec/aqw.h>
-#include <drivers/sensor.h>
+#include <zephyr/drivers/sensor.h>
 
 #include <qcbor/qcbor_encode.h>
 

@@ -3,15 +3,14 @@
  * @copyright Copyright Circuit Dojo LLC 2021
  */
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(aqw, CONFIG_AQW_LOG_LEVEL);
 
 #include <shtc3/shtc3.h>
 #include <sgp40/sgp40.h>
 #include <aqw.h>
 #include <sensirion_voc_algorithm.h>
-
-#include <logging/log.h>
-LOG_MODULE_REGISTER(aqw, CONFIG_AQW_LOG_LEVEL);
 
 /* Macro defines */
 #define APP_EVENT_QUEUE_SIZE 24
@@ -89,12 +88,12 @@ static void aqw_sensor_work_fn(struct k_work *work)
                 LOG_ERR("Unable to set SGP40_ATTR_RAW_HUM_TEMP attr. Err: %i", err);
         }
 
-        LOG_DBG("Getting from %s chan %i", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+        LOG_DBG("Getting from %s chan %i", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan);
 
         err = sensor_sample_fetch_chan(aqw_sensors[i]->dev, aqw_sensors[i]->chan);
         if (err)
         {
-            LOG_ERR("Unable to fetch from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+            LOG_ERR("Unable to fetch from %s on %i chan.", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan);
             continue;
         }
 
@@ -114,11 +113,11 @@ static void aqw_sensor_work_fn(struct k_work *work)
         err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &data[i].val);
         if (err)
         {
-            LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+            LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan);
             continue;
         }
 
-        LOG_DBG("Data from %s: %i.%i", aqw_sensors[i]->dev_name, data[i].val.val1, data[i].val.val2);
+        LOG_DBG("Data from %s: %i.%i", aqw_sensors[i]->dev->name, data[i].val.val1, data[i].val.val2);
 
         /* Calculate the VOC index */
         if (aqw_sensors[i]->type == AQW_VOC_SENSOR)
@@ -174,7 +173,7 @@ static void aqw_sensor_work_fn(struct k_work *work)
             err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &val);
             if (err)
             {
-                LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev_name, aqw_sensors[i]->chan);
+                LOG_WRN("Unable to get from %s on %i chan.", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan);
                 continue;
             }
 
@@ -248,17 +247,14 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
     for (int i = 0; i < aqw_sensor_count; i++)
     {
 
-        /* Then continue on our merry way */
-        aqw_sensors[i]->dev = device_get_binding(aqw_sensors[i]->dev_name);
-
         /* Make sure the device is legit */
-        if (aqw_sensors[i]->dev == NULL)
+        if (!device_is_ready(aqw_sensors[i]->dev))
         {
-            LOG_WRN("Unable to find %s.", aqw_sensors[i]->dev_name);
+            LOG_WRN("%s is not ready!", aqw_sensors[i]->dev->name);
         }
         else
         {
-            LOG_DBG("Found %s.", aqw_sensors[i]->dev_name);
+            LOG_DBG("Found %s.", aqw_sensors[i]->dev->name);
         }
 
         /* Set hardcoded warmup interval */

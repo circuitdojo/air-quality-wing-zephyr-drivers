@@ -6,30 +6,30 @@
 #define DT_DRV_COMPAT sensirion_sgp40cd
 
 #include <math.h>
-#include <device.h>
-#include <drivers/i2c.h>
-#include <drivers/sensor.h>
-#include <drivers/gpio.h>
+
+#include <zephyr/device.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(sgp40, CONFIG_SENSOR_LOG_LEVEL);
 
 #include "sgp40.h"
 #include <sensirion_common.h>
 
-#include <logging/log.h>
-LOG_MODULE_REGISTER(sgp40, CONFIG_SENSOR_LOG_LEVEL);
+struct sgp40_config
+{
+    const struct device *bus;
+    struct gpio_dt_spec power_en_pin;
+};
 
 struct sgp40_data
 {
-    const struct device *i2c_dev;
     struct sensor_value voc;
     bool has_temperature;
     bool has_humidity;
     uint8_t temperature[3];
     uint8_t humidity[3];
-    /* Enable pin */
-    const struct device *gpio;
-    const char *power_en_dev_name;
-    gpio_pin_t power_en_pin;
-    gpio_dt_flags_t power_en_flags;
 };
 
 static int sgp40_sample_fetch(const struct device *dev,
@@ -37,7 +37,8 @@ static int sgp40_sample_fetch(const struct device *dev,
 {
 
     int err = 0;
-    struct sgp40_data *dat = (struct sgp40_data *)dev->data;
+    struct sgp40_data *data = dev->data;
+    const struct sgp40_config *config = dev->config;
 
     /* Get the data depending on which channel */
     switch (chan)
@@ -50,10 +51,10 @@ static int sgp40_sample_fetch(const struct device *dev,
         uint8_t rx_buf[] = {0, 0, 0};
 
         /* If calibration bytes are good, use them */
-        if (dat->has_humidity && dat->has_temperature)
+        if (data->has_humidity && data->has_temperature)
         {
-            memcpy(&cmd[2], dat->humidity, sizeof(dat->humidity));
-            memcpy(&cmd[5], dat->temperature, sizeof(dat->temperature));
+            memcpy(&cmd[2], data->humidity, sizeof(data->humidity));
+            memcpy(&cmd[5], data->temperature, sizeof(data->temperature));
         }
 
         /* Multiple readings since the first doesn't work.. */
@@ -61,7 +62,7 @@ static int sgp40_sample_fetch(const struct device *dev,
         {
 
             /* Get the VOC level */
-            err = i2c_write(dat->i2c_dev, cmd, sizeof(cmd), DT_INST_REG_ADDR(0));
+            err = i2c_write(config->bus, cmd, sizeof(cmd), DT_INST_REG_ADDR(0));
             if (err)
             {
                 LOG_WRN("Unable to write VOC request. Err: %i", err);
@@ -71,7 +72,7 @@ static int sgp40_sample_fetch(const struct device *dev,
             /* Wait for the data */
             k_sleep(K_MSEC(30));
 
-            err = i2c_read(dat->i2c_dev, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
+            err = i2c_read(config->bus, rx_buf, sizeof(rx_buf), DT_INST_REG_ADDR(0));
             if (err)
             {
                 LOG_WRN("Unable to read VOC data. Err: %i", err);
@@ -89,12 +90,12 @@ static int sgp40_sample_fetch(const struct device *dev,
 
         /* Copy data over */
         /* Note need to swap the bytes since the endianess is different */
-        dat->voc.val1 = (rx_buf[0] << 8) + (rx_buf[1]);
-        dat->voc.val2 = 0;
+        data->voc.val1 = (rx_buf[0] << 8) + (rx_buf[1]);
+        data->voc.val2 = 0;
 
         /* Power heater off */
         // uint8_t heater_off_cmd[] = SGP40_HEATER_OFF_CMD;
-        // err = i2c_write(dat->i2c_dev, heater_off_cmd, sizeof(heater_off_cmd), DT_INST_REG_ADDR(0));
+        // err = i2c_write(config->bus, heater_off_cmd, sizeof(heater_off_cmd), DT_INST_REG_ADDR(0));
         // if (err)
         // {
         //     LOG_WRN("Unable to power off SGP40 heater. Err: %i", err);
@@ -136,39 +137,38 @@ static int sgp40_init(const struct device *dev)
 {
 
     struct sgp40_data *data = dev->data;
+    const struct sgp40_config *config = dev->config;
 
-    data->i2c_dev = device_get_binding(DT_INST_BUS_LABEL(0));
-
-    if (data->i2c_dev == NULL)
+    if (!device_is_ready(config->bus))
     {
         LOG_ERR("Unable to get I2C Master.");
-        return -EINVAL;
+        return -EIO;
     }
 
     /* By default false */
     data->has_humidity = false;
     data->has_temperature = false;
 
-/* Configure GPIO */
-#if DT_INST_PROP_HAS_IDX(0, enable_gpios, 0)
-    data->power_en_dev_name = DT_INST_GPIO_LABEL(0, enable_gpios);
-    data->power_en_pin = DT_INST_GPIO_PIN(0, enable_gpios);
-    data->power_en_flags = DT_INST_GPIO_FLAGS(0, enable_gpios);
-    data->gpio = device_get_binding(data->power_en_dev_name);
-    if (data->gpio == NULL)
-        LOG_WRN("Power enable pin is not defined!");
+    /* Configure GPIO */
+    if (config->power_en_pin.port != NULL)
+    {
+        if (!device_is_ready(config->power_en_pin.port))
+        {
+            LOG_ERR("Power enable pin is not defined!");
+            return -EIO;
+        }
 
-    /* Default on */
-    gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_OUTPUT_HIGH);
-    k_sleep(K_USEC(800));
-#endif
+        /* Default on */
+        gpio_pin_configure_dt(&config->power_en_pin, GPIO_OUTPUT_HIGH);
+        k_sleep(K_USEC(800));
+    }
 
     uint8_t soft_rst_cmd[] = SGP40_SOFT_RST_CMD;
-    i2c_write(data->i2c_dev, soft_rst_cmd, sizeof(soft_rst_cmd), DT_INST_REG_ADDR(0));
+    i2c_write(config->bus, soft_rst_cmd, sizeof(soft_rst_cmd), DT_INST_REG_ADDR(0));
 
     /* Start hot plate */
     uint8_t start_cmd[] = SGP40_MEAS_RAW_NO_HUM_OR_TEMP_CMD;
-    i2c_write(data->i2c_dev, start_cmd, sizeof(start_cmd), DT_INST_REG_ADDR(0));
+    i2c_write(config->bus, start_cmd, sizeof(start_cmd), DT_INST_REG_ADDR(0));
 
     return 0;
 }
@@ -210,12 +210,16 @@ static const struct sensor_driver_api sgp40_api = {
     .channel_get = &sgp40_channel_get,
 };
 
-/* Main instantiation matcro */
-#define SGP40_DEFINE(inst)                                       \
-    static struct sgp40_data sgp40_data_##inst;                  \
-    DEVICE_DT_INST_DEFINE(inst,                                  \
-                          sgp40_init, NULL,                      \
-                          &sgp40_data_##inst, NULL, POST_KERNEL, \
+/* Main instantiation macro */
+#define SGP40_DEFINE(inst)                                                       \
+    static struct sgp40_data sgp40_data_##inst;                                  \
+    static const struct sgp40_config sgp40_config_##inst = {                     \
+        .bus = DEVICE_DT_GET(DT_INST_BUS(inst)),                                 \
+        .power_en_pin = GPIO_DT_SPEC_INST_GET_OR(inst, enable_gpios, {0}),       \
+    };                                                                           \
+    DEVICE_DT_INST_DEFINE(inst,                                                  \
+                          sgp40_init, NULL,                                      \
+                          &sgp40_data_##inst, &sgp40_config_##inst, POST_KERNEL, \
                           CONFIG_SENSOR_INIT_PRIORITY, &sgp40_api);
 
 /* Create the struct device for every status "okay"*/

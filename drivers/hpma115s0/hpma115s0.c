@@ -6,38 +6,35 @@
 #define DT_DRV_COMPAT honeywell_hpma115s0
 
 #include <math.h>
-#include <device.h>
-#include <drivers/i2c.h>
-#include <drivers/sensor.h>
-#include <drivers/uart.h>
-#include <drivers/gpio.h>
-#include <sys/ring_buffer.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/ring_buffer.h>
 
 #include "hpma115s0.h"
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(hpma115s0, CONFIG_SENSOR_LOG_LEVEL);
 
 #ifdef CONFIG_SOC_FAMILY_STM32
 #define RX_TIMEOUT SYS_FOREVER_US
 #else
-#define RX_TIMEOUT 10
+#define RX_TIMEOUT 10000
 #endif
 
 #define FRAME_SIZE 32
 
+struct hpma115s0_config
+{
+    const struct device *bus;
+    const struct gpio_dt_spec power_en_pin;
+};
+
 struct hpma115s0_data
 {
-    /* Comms */
-    const struct device *uart_dev;
     struct sensor_value pm25;
     bool ready;
     uint8_t rx_buf[FRAME_SIZE * 2];
-
-    /* Enable pin */
-    const struct device *gpio;
-    const char *power_en_dev_name;
-    gpio_pin_t power_en_pin;
-    gpio_dt_flags_t power_en_flags;
 };
 
 static int hpma115s0_sample_fetch(const struct device *dev,
@@ -45,7 +42,8 @@ static int hpma115s0_sample_fetch(const struct device *dev,
 {
 
     int err = 0;
-    struct hpma115s0_data *data = (struct hpma115s0_data *)dev->data;
+    struct hpma115s0_data *data = dev->data;
+    const struct hpma115s0_config *config = dev->config;
 
     /* Fetch from the device */
     switch (chan)
@@ -53,8 +51,8 @@ static int hpma115s0_sample_fetch(const struct device *dev,
     case SENSOR_CHAN_PM_2_5:
 
         /* Power enable */
-        if (data->gpio != NULL)
-            gpio_pin_set(data->gpio, data->power_en_pin, 1);
+        if (config->power_en_pin.port != NULL)
+            gpio_pin_set_dt(&config->power_en_pin, 1);
 
         k_sleep(K_MSEC(3980));
 
@@ -62,16 +60,16 @@ static int hpma115s0_sample_fetch(const struct device *dev,
         memset(data->rx_buf, 0, sizeof(data->rx_buf));
 
         /* Disable first */
-        uart_rx_disable(data->uart_dev);
+        uart_rx_disable(config->bus);
 
         /* Start UART rx and read bytes */
-        err = uart_rx_enable(data->uart_dev, data->rx_buf, FRAME_SIZE + 1, RX_TIMEOUT);
+        err = uart_rx_enable(config->bus, data->rx_buf, FRAME_SIZE + 1, RX_TIMEOUT);
         if (err)
         {
 
             /* Power off */
-            if (data->gpio != NULL)
-                gpio_pin_set(data->gpio, data->power_en_pin, 0);
+            if (config->power_en_pin.port != NULL)
+                gpio_pin_set_dt(&config->power_en_pin, 0);
 
             LOG_ERR("Unable to recieve bytes! Err %i", err);
             return err;
@@ -91,7 +89,8 @@ static int hpma115s0_channel_get(const struct device *dev,
                                  struct sensor_value *val)
 {
 
-    struct hpma115s0_data *data = (struct hpma115s0_data *)dev->data;
+    struct hpma115s0_data *data = dev->data;
+    const struct hpma115s0_config *config = dev->config;
 
     /* Return an error if not ready yet */
     if (!data->ready)
@@ -110,6 +109,10 @@ static int hpma115s0_channel_get(const struct device *dev,
         return -EINVAL;
     }
 
+    /* Turn it off once we get data */
+    if (config->power_en_pin.port != NULL)
+        gpio_pin_set_dt(&config->power_en_pin, 0);
+
     return 0;
 }
 
@@ -121,7 +124,8 @@ static const struct sensor_driver_api hpma115s0_api = {
 static void uart_cb(const struct device *dev, struct uart_event *evt, void *user_data)
 {
 
-    struct hpma115s0_data *data = (struct hpma115s0_data *)user_data;
+    struct hpma115s0_data *data = user_data;
+    const struct hpma115s0_config *config = dev->config;
 
     LOG_DBG("evt->type %d", evt->type);
     switch (evt->type)
@@ -152,15 +156,12 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
             }
         }
 
-        /* Turn it off once we get data */
-        if (data->gpio != NULL)
-            gpio_pin_set(data->gpio, data->power_en_pin, 0);
-
+        break;
+    case UART_RX_STOPPED:
         break;
     case UART_RX_BUF_REQUEST:
     case UART_RX_BUF_RELEASED:
     case UART_RX_DISABLED:
-    case UART_RX_STOPPED:
         break;
     }
 }
@@ -169,40 +170,47 @@ static int hpma115s0_init(const struct device *dev)
 {
     int err = 0;
     struct hpma115s0_data *data = dev->data;
+    const struct hpma115s0_config *config = dev->config;
 
-    data->uart_dev = device_get_binding(DT_INST_BUS_LABEL(0));
-
-    if (data->uart_dev == NULL)
+    if (!device_is_ready(config->bus))
     {
         LOG_ERR("Unable to get UART device.");
-        return -EINVAL;
+        return -EIO;
     }
 
     /* Set the callback */
-    err = uart_callback_set(data->uart_dev, uart_cb, data);
+    err = uart_callback_set(config->bus, uart_cb, data);
     __ASSERT(err == 0, "Failed to set callback");
 
     data->ready = false;
 
-/* Configure GPIO */
-#if DT_INST_PROP_HAS_IDX(0, enable_gpios, 0)
-    data->power_en_dev_name = DT_INST_GPIO_LABEL(0, enable_gpios);
-    data->power_en_pin = DT_INST_GPIO_PIN(0, enable_gpios);
-    data->power_en_flags = DT_INST_GPIO_FLAGS(0, enable_gpios);
-    data->gpio = device_get_binding(data->power_en_dev_name);
-    if (data->gpio == NULL)
-        LOG_WRN("Power enable pin is not defined!");
+    /* Configure GPIO */
+    if (config->power_en_pin.port != NULL)
+    {
+        if (!device_is_ready(config->power_en_pin.port))
+        {
+            LOG_ERR("Unable to configure power enable pin.");
+            return -EIO;
+        }
 
-    /* Default off */
-    gpio_pin_configure(data->gpio, data->power_en_pin, GPIO_OUTPUT_INACTIVE);
-#endif
+        /* Default off */
+        gpio_pin_configure_dt(&config->power_en_pin, GPIO_OUTPUT_INACTIVE);
+    }
 
     return 0;
 }
 
-static struct hpma115s0_data hpma115s0_data;
+/* Main instantiation macro */
+#define HPMA115S0_DEFINE(inst)                                                           \
+    static struct hpma115s0_data hpma115s0_data_##inst;                                  \
+    static const struct hpma115s0_config hpma115s0_config_##inst = {                     \
+        .bus = DEVICE_DT_GET(DT_INST_BUS(inst)),                                         \
+        .power_en_pin = GPIO_DT_SPEC_INST_GET_OR(inst, enable_gpios, {0}),               \
+    };                                                                                   \
+    DEVICE_DT_INST_DEFINE(inst,                                                          \
+                          hpma115s0_init, NULL,                                          \
+                          &hpma115s0_data_##inst, &hpma115s0_config_##inst, POST_KERNEL, \
+                          CONFIG_SENSOR_INIT_PRIORITY, &hpma115s0_api);
 
-DEVICE_DEFINE(hpma115s0, DT_INST_LABEL(0),
-              hpma115s0_init, NULL,
-              &hpma115s0_data, NULL, POST_KERNEL,
-              CONFIG_SENSOR_INIT_PRIORITY, &hpma115s0_api);
+/* Create the struct device for every status "okay"*/
+DT_INST_FOREACH_STATUS_OKAY(HPMA115S0_DEFINE)

@@ -7,11 +7,11 @@
 #define _AQW_H
 
 #include <zephyr/types.h>
-#include <drivers/sensor.h>
+#include <zephyr/drivers/sensor.h>
 
 /**
  * @brief Defines all the sensors possible
- * 
+ *
  */
 enum aqw_sensor_type
 {
@@ -26,7 +26,7 @@ enum aqw_sensor_type
 
 /**
  * @brief Sensor data that is shared with other contexts
- * 
+ *
  */
 struct aqw_sensor_data
 {
@@ -37,7 +37,7 @@ struct aqw_sensor_data
 
 /**
  * @brief Sensor organization so it can be placed in an array
- * 
+ *
  */
 struct aqw_sensor
 {
@@ -46,19 +46,18 @@ struct aqw_sensor
     uint32_t interval;
     uint32_t keep_alive_interval;
     uint64_t last_measurment_ticks;
-    uint8_t *dev_name;
     const struct device *dev;
 };
 
 /**
  * @brief Callback to main context when data is ready
- * 
+ *
  */
 typedef void (*aqw_sensor_data_ready_t)(struct aqw_sensor_data *data, size_t len);
 
 /**
  * @brief Air Quality Wing init function
- * 
+ *
  * @param _sensors structure of all sensors defined. (pointer to an array of pointers)
  * @param _sensor_count number of sensors to init
  * @param _cb optional callback function for sending data
@@ -68,22 +67,22 @@ int aqw_init(struct aqw_sensor **_sensors, size_t _sensor_count, aqw_sensor_data
 
 /**
  * @brief Air Quality Wing fetch function for starting async data measurement
- * 
+ *
  * @return int 0 on success
  */
 int aqw_sensor_start_fetch(void);
 
 /**
- * @brief Returns pointer to static name string depending on sensor type 
- * 
+ * @brief Returns pointer to static name string depending on sensor type
+ *
  * @param type aqw_sensor_type enum
  * @return char* returned string pointer
  */
 char *aqw_sensor_type_to_string(enum aqw_sensor_type type);
 
 /**
- * @brief Returns pointer to static unit string depending on sensor type 
- * 
+ * @brief Returns pointer to static unit string depending on sensor type
+ *
  * @param type aqw_sensor_type enum
  * @return char* returned string pointer
  */

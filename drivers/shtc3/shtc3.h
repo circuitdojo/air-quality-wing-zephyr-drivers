@@ -6,8 +6,8 @@
 #ifndef _SHTC3_H
 #define _SHTC3_H
 
-#include <zephyr.h>
-#include <drivers/sensor.h>
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/sensor.h>
 
 #define SHTC3_TEMP_HOLD_CMD \
     {                       \
