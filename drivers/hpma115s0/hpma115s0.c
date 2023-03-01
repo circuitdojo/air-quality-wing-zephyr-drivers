@@ -125,7 +125,6 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
 {
 
     struct hpma115s0_data *data = user_data;
-    const struct hpma115s0_config *config = dev->config;
 
     LOG_DBG("evt->type %d", evt->type);
     switch (evt->type)
