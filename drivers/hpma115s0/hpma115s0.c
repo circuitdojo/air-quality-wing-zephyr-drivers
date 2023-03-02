@@ -102,7 +102,9 @@ static int hpma115s0_channel_get(const struct device *dev,
     switch (chan)
     {
     case SENSOR_CHAN_PM_2_5:
-        memcpy(val, &data->pm25, sizeof(struct sensor_value));
+        /* Copy it over */
+        *val = data->pm25;
+        data->ready = false;
         break;
     default:
         LOG_WRN("Invalid sensor_channel %i", chan);

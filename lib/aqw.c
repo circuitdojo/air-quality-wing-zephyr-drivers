@@ -113,7 +113,9 @@ static void aqw_sensor_work_fn(struct k_work *work)
         err = sensor_channel_get(aqw_sensors[i]->dev, aqw_sensors[i]->chan, &data[i].val);
         if (err)
         {
-            LOG_WRN("Unable to get from %s on %i chan. Err: %i", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan, err);
+            if (err != -EBUSY)
+                LOG_WRN("Unable to get from %s on %i chan. Err: %i", aqw_sensors[i]->dev->name, aqw_sensors[i]->chan, err);
+                
             continue;
         }
 
