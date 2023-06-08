@@ -3,7 +3,7 @@
 
 #include <qcbor/qcbor_encode.h>
 
-int app_codec_aqw_data_encode(struct app_codec_payload *payload, uint8_t *p_buf, size_t buf_len, size_t *p_size)
+int aqw_codec_encode(struct app_codec_payload *payload, uint8_t *p_buf, size_t buf_len, size_t *p_size)
 {
 
     // Setup of the goods
@@ -15,6 +15,12 @@ int app_codec_aqw_data_encode(struct app_codec_payload *payload, uint8_t *p_buf,
 
     /* Create over-arching map */
     QCBOREncode_OpenMap(&ec);
+
+    /* Add location if it exists*/
+    if (payload->location != NULL)
+    {
+        QCBOREncode_AddSZStringToMap(&ec, "location", payload->location);
+    }
 
     for (int i = 0; i < payload->sensor_count; i++)
     {

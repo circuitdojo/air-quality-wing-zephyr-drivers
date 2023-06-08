@@ -2,7 +2,7 @@
 # Copyright (c) 2021 Circuit Dojo LLC
 #
 
-add_subdirectory(codec)
+add_subdirectory_ifdef(CONFIG_AQW_CODEC codec)
 
 zephyr_library()
 zephyr_library_sources(aqw.c)
